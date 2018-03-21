@@ -1,10 +1,10 @@
 #!/bin/bash
-BINDER=$(dirname "$(readlink -fn "$0")")
+BINDER=$(dirname "$(readlink -fn "$0")") #Why is this variable in caps when all other variables are in capital camels, aren't all variables in bash global?
 cd "$BINDER"
 echo "***Raspberry Pi ArchInstall***"
 
 function SelectDevice {
-  echo ""
+  echo "" #You should use "printf" instead of echo as it is more reliable and has support for special chars like "\n"
   echo "Devices found:"
   lsblk
   echo ""
@@ -22,13 +22,16 @@ function ConfirmDriveChoice {
   echo ""
   echo "Installing will erase all data on ${ArchPiDevice}"
   read -p "Are you sure you want to continue? (Y/N): " ConfirmChoice
+  # What about lower case?
   case ${ConfirmChoice} in
     [y]|[Y]) ;;
     [n]|[N]) SelectDevice ;;
-    *) echo "Invaild selection"; ConfirmDriveChoice;;
+    *) echo "Invaild selection"; ConfirmDriveChoice;; #Am i right in thinking this is the default action if not you should implement one
   esac
 }
 SelectDevice
+
+# It might be worth piping the stdout and stderr to log files
 
 echo "[1/6] Getting read to install to ${ArchPiDevice}"
 umount ${ArchPiDevice}* &>/dev/null
@@ -68,9 +71,9 @@ mkfs.ext4 ${ArchPiDevice}p2 &>/dev/null
 mkdir ArchPiSDRoot
 mount ${ArchPiDevice}p2 ArchPiSDRoot >/dev/null
 
-echo "[4/6] Downloading lastest image (This might take a while...)"
+echo "[4/6] Downloading lastest image (This might take a while...)" #perhaps you should create a process on the side using "&" to download this to improve performence
 ##Install ArchArm##
-wget http://os.archlinuxarm.org/os/ArchLinuxARM-rpi-latest.tar.gz -O  ArchLinuxArm-rpi-latest.tar.gz &>/dev/null
+wget http://os.archlinuxarm.org/os/ArchLinuxARM-rpi-latest.tar.gz -O  ArchLinuxArm-rpi-latest.tar.gz &>/dev/null #You should sign this with md5 to validate
 echo "[5/6] Installing image to ${ArchPiDevice} (This will also take a while!)"
 bsdtar -xpf ArchLinuxArm-rpi-latest.tar.gz -C ArchPiSDRoot >/dev/null
 sync
@@ -78,7 +81,7 @@ mv ArchPiSDRoot/boot/* ArchPiSDBoot
 
 echo "[6/6] Finishing up"
 ##Finishing UP##
-sync
+sync #The sync command is repeated twice, is this really necessary?
 umount ArchPiSDBoot
 umount ArchPiSDRoot
 cd "$BINDER"
