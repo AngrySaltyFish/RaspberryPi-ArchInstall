@@ -1,52 +1,62 @@
 #!/bin/bash
-BINDER=$(dirname "$(readlink -fn "$0")")
-cd "$BINDER"
-echo "***Raspberry Pi ArchInstall***"
+StartDir=$(dirname "$(readlink -fn "$0")")
+cd "${StartDir}"
+printf "***Raspberry Pi ArchInstall***\n"
+
+function ConfirmValidation {
+  printf "The ArchARM image downloaded can be confirmed against its signiture\n"
+  read -p "Do you want to run this check (Y is strongly recomended) (Y/N): " ValidationChoice
+  case ${ValidationChoice} in
+    [y]|[Y]) ImageValidation=true;;
+    [n]|[N]) ImageValidation=false;;
+    *) printf "Invaild Selction\n"; ConfirmValidation;;
+  esac
+}
+ConfirmValidation
 
 function SelectDevice {
-  echo ""
-  echo "Devices found:"
+  printf "\nDevices found:\n"
   lsblk
-  echo ""
+  printf "\n"
   read -p "Enter device name to install to: " ArchPiDevice
   ArchPiDevice="/dev/${ArchPiDevice}"
-  if [[ -e ${ArchPiDevice} ]]; then
-    ConfirmDriveChoice
+  if [ ${ArchPiDevice} != "/dev/" ]; then #Deny just an empty string for just /dev
+    if [[ -e ${ArchPiDevice} ]]; then #Check if device exists in /dev/
+      ConfirmDriveChoice
+    else
+      printf ""
+    fi
   else
-    echo "Invaild device choice!"
+    printf "\nInvaild device choice!"""""
     SelectDevice
   fi
 }
 
 function ConfirmDriveChoice {
-  echo ""
-  echo "Installing will erase all data on ${ArchPiDevice}"
+  printf "\nInstalling will erase all data on ${ArchPiDevice}\n"
   read -p "Are you sure you want to continue? (Y/N): " ConfirmChoice
   case ${ConfirmChoice} in
-    [y]|[Y]) ;;
+    [y]|[Y]) ;; #WillContineWithScript
     [n]|[N]) SelectDevice ;;
-    *) echo "Invaild selection"; ConfirmDriveChoice;;
+    *) printf "Invaild selection";ConfirmDriveChoice;;
   esac
 }
 SelectDevice
 
-echo "[1/6] Getting read to install to ${ArchPiDevice}"
+printf "[1/6] Getting read to install to ${ArchPiDevice}\n"
 umount ${ArchPiDevice}* &>/dev/null
-rm -r .ArchPiSDTemp &>/dev/null
+rm -r .ArchPiSDTemp &>/dev/null  #Remove temp folder from any unfinished run
 mkdir .ArchPiSDTemp
 cd .ArchPiSDTemp
 
-echo "[2/6] Setting up device paritions"
+printf "[2/6] Setting up device paritions\n"
 ##SetupPartitons##
-
 echo "o
-p
 n
 p
 1
 
 +100M
-Y
 t
 c
 n
@@ -54,36 +64,49 @@ p
 2
 
 
-Y
 w
-" | fdisk ${ArchPiDevice} &>/dev/null
+" | fdisk -W always ${ArchPiDevice} &>/dev/null
+partprobe ${ArchPiDevice} #Make the kernal use the new partition structure !
 
-echo "[3/6] Creating new file system + mounting it"
+printf "[3/6] Creating new file system and mounting it\n"
 ##File system + Mounting##
 mkfs.vfat ${ArchPiDevice}p1 &>/dev/null
 mkdir ArchPiSDBoot
-mount ${ArchPiDevice}p1 ArchPiSDBoot >/dev/null
+mount ${ArchPiDevice}p1 ArchPiSDBoot &>/dev/null
 
 mkfs.ext4 ${ArchPiDevice}p2 &>/dev/null
 mkdir ArchPiSDRoot
-mount ${ArchPiDevice}p2 ArchPiSDRoot >/dev/null
+mount ${ArchPiDevice}p2 ArchPiSDRoot &>/dev/null
 
-echo "[4/6] Downloading lastest image (This might take a while...)"
-##Install ArchArm##
-wget http://os.archlinuxarm.org/os/ArchLinuxARM-rpi-latest.tar.gz -O  ArchLinuxArm-rpi-latest.tar.gz &>/dev/null
-echo "[5/6] Installing image to ${ArchPiDevice} (This will also take a while!)"
-bsdtar -xpf ArchLinuxArm-rpi-latest.tar.gz -C ArchPiSDRoot >/dev/null
-sync
+printf "[4/6] Downloading lastest image (This might take a while...)   "
+function ValidateDownload {
+  printf "Validating download...."
+  wget http://os.archlinuxarm.org/os/ArchLinuxARM-rpi-latest.tar.gz.sig -O ArchLinuxARM-rpi-latest.tar.gz.sig &>/dev/null
+  gpg --keyserver-options auto-key-retrieve --verify ArchLinuxARM-rpi-latest.tar.gz.sig &>/dev/null
+  if [ $? -eq 0 ]; then
+    printf "Success\n"
+  else
+    printf "Failed!!! \nExiting now...\n"
+    exit
+  fi
+}
+wget http://os.archlinuxarm.org/os/ArchLinuxARM-rpi-latest.tar.gz -O ArchLinuxARM-rpi-latest.tar.gz &>/dev/null
+if [ "$ImageValidation" = true ]; then
+  ValidateDownload
+else
+  printf "....Validation skipped :(\n"
+fi
+
+
+printf "[5/6] Installing image to ${ArchPiDevice} (This will also take a while!)\n"
+bsdtar -xpf ArchLinuxARM-rpi-latest.tar.gz -C ArchPiSDRoot &>/dev/null
 mv ArchPiSDRoot/boot/* ArchPiSDBoot
-
-echo "[6/6] Finishing up"
-##Finishing UP##
 sync
-umount ArchPiSDBoot
-umount ArchPiSDRoot
-cd "$BINDER"
+
+printf "[6/6] Finishing up\n"
+umount ArchPiSDBoot ArchPiSDRoot
+cd "${StartDir}"
 rm -r .ArchPiSDTemp
 
-echo "Install complete "
-echo "Default usernames/password: alarm/alarm + root/root"
+printf "\nInstall complete \nDefault usernames/password: alarm/alarm + root/root\n"
 notify-send "Raspberry Pi ArchInstall" "Installtion to ${ArchPiDevice} is complete!"
