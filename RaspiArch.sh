@@ -5,7 +5,7 @@ printf "***Raspberry Pi ArchInstall***\n"
 
 function ConfirmValidation {
   printf "The ArchARM image downloaded can be confirmed against its signiture\n"
-  read -p "Do you want to run this check (Y is strongly recomended) (Y/N): " ValidationChoice
+  read -p "Do you want to run this check (Y is strongly recomended) (Y/N): " ValidationChoice #I think this validation check can be extracted to a function which should reduce code repition
   case ${ValidationChoice} in
     [y]|[Y]) ImageValidation=true;;
     [n]|[N]) ImageValidation=false;;
@@ -17,7 +17,7 @@ ConfirmValidation
 function SelectDevice {
   printf "\nDevices found:\n"
   lsblk
-  printf "\n"
+  printf "\n" #couldn't you put this '\n' on the line below so "read -p "\nEnt....." that way you won't need this printf statement
   read -p "Enter device name to install to: " ArchPiDevice
   ArchPiDevice="/dev/${ArchPiDevice}"
   if [ ${ArchPiDevice} != "/dev/" ]; then #Deny just an empty string for just /dev
@@ -65,7 +65,7 @@ p
 
 
 w
-" | fdisk -W always ${ArchPiDevice} &>/dev/null
+" | fdisk -W always ${ArchPiDevice} &>/dev/null #maybe add an option to enable logging, you could have a variable with a default value of /dev/null and let the user change it to a file
 partprobe ${ArchPiDevice} #Make the kernal use the new partition structure !
 
 printf "[3/6] Creating new file system and mounting it\n"
@@ -81,7 +81,7 @@ mount ${ArchPiDevice}p2 ArchPiSDRoot &>/dev/null
 printf "[4/6] Downloading lastest image (This might take a while...)   "
 function ValidateDownload {
   printf "Validating download...."
-  wget http://os.archlinuxarm.org/os/ArchLinuxARM-rpi-latest.tar.gz.sig -O ArchLinuxARM-rpi-latest.tar.gz.sig &>/dev/null
+  wget http://os.archlinuxarm.org/os/ArchLinuxARM-rpi-latest.tar.gz.sig -O ArchLinuxARM-rpi-latest.tar.gz.sig &>/dev/null #wget does have the -b option which could help improve speed
   gpg --keyserver-options auto-key-retrieve --verify ArchLinuxARM-rpi-latest.tar.gz.sig &>/dev/null
   if [ $? -eq 0 ]; then
     printf "Success\n"
